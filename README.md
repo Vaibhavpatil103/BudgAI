@@ -1,5 +1,5 @@
 # Full Stack AI Fianace Platform with Next JS, Supabase, Tailwind, Prisma, Inngest, ArcJet, Shadcn UI 
-<img width="1470" alt="Screenshot 2024-12-10 at 9 45 45 AM" 
+
 
 ### Make sure to create a `.env` file with following variables -
 
@@ -20,4 +20,6 @@ RESEND_API_KEY=
 
 ARCJET_KEY=
 ```
-
+npx inngest-cli@latest dev
+ npm run email
+ 
