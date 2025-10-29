@@ -3,9 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL")
+  relationMode = "prisma"
 }
 
 model User {
@@ -20,6 +21,8 @@ model User {
   budgets      Budget?
   transactions Transaction[]
 
+  @@index([clerkUserId])
+  @@index([email])
   @@map("users")
 }
 
@@ -36,6 +39,9 @@ model Account {
   transactions Transaction[]
 
   @@index([userId])
+  @@index([type])
+  @@index([isDefault])
+  @@index([createdAt])
   @@map("accounts")
 }
 
@@ -61,6 +67,12 @@ model Transaction {
 
   @@index([userId])
   @@index([accountId])
+  @@index([date])
+  @@index([type])
+  @@index([status])
+  @@index([category])
+  @@index([isRecurring])
+  @@index([createdAt])
   @@map("transactions")
 }
 
@@ -74,6 +86,7 @@ model Budget {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([createdAt])
   @@map("budgets")
 }
 
@@ -85,12 +98,16 @@ enum TransactionType {
 enum AccountType {
   CURRENT
   SAVINGS
+  INVESTMENT
+  CREDIT
+  LOAN
 }
 
 enum TransactionStatus {
   PENDING
   COMPLETED
   FAILED
+  CANCELLED
 }
 
 enum RecurringInterval {
