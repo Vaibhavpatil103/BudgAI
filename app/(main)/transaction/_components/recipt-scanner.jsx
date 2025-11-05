@@ -30,7 +30,7 @@ export function ReceiptScanner({ onScanComplete }) {
       onScanComplete(scannedData);
       toast.success("Receipt scanned successfully");
     }
-  }, [scanReceiptLoading, scannedData]);
+  }, [scanReceiptLoading, scannedData, onScanComplete]);
 
   return (
     <div className="flex items-center gap-4">
@@ -44,6 +44,7 @@ export function ReceiptScanner({ onScanComplete }) {
           const file = e.target.files?.[0];
           if (file) handleReceiptScan(file);
         }}
+        suppressHydrationWarning
       />
       <Button
         type="button"

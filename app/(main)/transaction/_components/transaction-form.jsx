@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarIcon, Loader2 } from "lucide-react";
@@ -40,6 +40,37 @@ export function AddTransactionForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Memoize default values to prevent recreation on every render
+  const getDefaultValues = useCallback(() => {
+    if (editMode && initialData) {
+      return {
+        type: initialData.type,
+        amount: initialData.amount.toString(),
+        description: initialData.description,
+        accountId: initialData.accountId,
+        category: initialData.category,
+        date: new Date(initialData.date),
+        isRecurring: initialData.isRecurring,
+        ...(initialData.recurringInterval && {
+          recurringInterval: initialData.recurringInterval,
+        }),
+      };
+    }
+    return {
+      type: "EXPENSE",
+      amount: "",
+      description: "",
+      accountId: accounts.find((ac) => ac.isDefault)?.id || "",
+      date: new Date(),
+      isRecurring: false,
+    };
+  }, [editMode, initialData, accounts]);
 
   const {
     register,
@@ -51,28 +82,7 @@ export function AddTransactionForm({
     reset,
   } = useForm({
     resolver: zodResolver(transactionSchema),
-    defaultValues:
-      editMode && initialData
-        ? {
-            type: initialData.type,
-            amount: initialData.amount.toString(),
-            description: initialData.description,
-            accountId: initialData.accountId,
-            category: initialData.category,
-            date: new Date(initialData.date),
-            isRecurring: initialData.isRecurring,
-            ...(initialData.recurringInterval && {
-              recurringInterval: initialData.recurringInterval,
-            }),
-          }
-        : {
-            type: "EXPENSE",
-            amount: "",
-            description: "",
-            accountId: accounts.find((ac) => ac.isDefault)?.id,
-            date: new Date(),
-            isRecurring: false,
-          },
+    defaultValues: getDefaultValues(),
   });
 
   const {
@@ -94,7 +104,7 @@ export function AddTransactionForm({
     }
   };
 
-  const handleScanComplete = (scannedData) => {
+  const handleScanComplete = useCallback((scannedData) => {
     if (scannedData) {
       setValue("amount", scannedData.amount.toString());
       setValue("date", new Date(scannedData.date));
@@ -106,8 +116,9 @@ export function AddTransactionForm({
       }
       toast.success("Receipt scanned successfully");
     }
-  };
+  }, [setValue]);
 
+  // Fix the infinite loop - add proper dependencies and conditions
   useEffect(() => {
     if (transactionResult?.success && !transactionLoading) {
       toast.success(
@@ -118,7 +129,7 @@ export function AddTransactionForm({
       reset();
       router.push(`/account/${transactionResult.data.accountId}`);
     }
-  }, [transactionResult, transactionLoading, editMode]);
+  }, [transactionResult, transactionLoading, editMode, reset, router]);
 
   const type = watch("type");
   const isRecurring = watch("isRecurring");
@@ -127,6 +138,9 @@ export function AddTransactionForm({
   const filteredCategories = categories.filter(
     (category) => category.type === type
   );
+
+  // Get initial values once to prevent re-renders
+  const initialAccountId = getDefaultValues().accountId;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -162,6 +176,7 @@ export function AddTransactionForm({
             step="0.01"
             placeholder="0.00"
             {...register("amount")}
+            suppressHydrationWarning
           />
           {errors.amount && (
             <p className="text-sm text-red-500">{errors.amount.message}</p>
@@ -172,7 +187,7 @@ export function AddTransactionForm({
           <label className="text-sm font-medium">Account</label>
           <Select
             onValueChange={(value) => setValue("accountId", value)}
-            defaultValue={getValues("accountId")}
+            defaultValue={initialAccountId}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select account" />
@@ -204,7 +219,7 @@ export function AddTransactionForm({
         <label className="text-sm font-medium">Category</label>
         <Select
           onValueChange={(value) => setValue("category", value)}
-          defaultValue={getValues("category")}
+          defaultValue={getDefaultValues().category}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select category" />
@@ -242,7 +257,7 @@ export function AddTransactionForm({
             <Calendar
               mode="single"
               selected={date}
-              onSelect={(date) => setValue("date", date)}
+              onSelect={(selectedDate) => setValue("date", selectedDate)}
               disabled={(date) =>
                 date > new Date() || date < new Date("1900-01-01")
               }
@@ -258,33 +273,39 @@ export function AddTransactionForm({
       {/* Description */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Description</label>
-        <Input placeholder="Enter description" {...register("description")} />
+        <Input 
+          placeholder="Enter description" 
+          {...register("description")} 
+          suppressHydrationWarning
+        />
         {errors.description && (
           <p className="text-sm text-red-500">{errors.description.message}</p>
         )}
       </div>
 
-      {/* Recurring Toggle */}
-      <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-        <div className="space-y-0.5">
-          <label className="text-base font-medium">Recurring Transaction</label>
-          <div className="text-sm text-muted-foreground">
-            Set up a recurring schedule for this transaction
+      {/* Recurring Toggle - Only render on client */}
+      {isClient && (
+        <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <label className="text-base font-medium">Recurring Transaction</label>
+            <div className="text-sm text-muted-foreground">
+              Set up a recurring schedule for this transaction
+            </div>
           </div>
+          <Switch
+            checked={isRecurring}
+            onCheckedChange={(checked) => setValue("isRecurring", checked)}
+          />
         </div>
-        <Switch
-          checked={isRecurring}
-          onCheckedChange={(checked) => setValue("isRecurring", checked)}
-        />
-      </div>
+      )}
 
       {/* Recurring Interval */}
-      {isRecurring && (
+      {isRecurring && isClient && (
         <div className="space-y-2">
           <label className="text-sm font-medium">Recurring Interval</label>
           <Select
             onValueChange={(value) => setValue("recurringInterval", value)}
-            defaultValue={getValues("recurringInterval")}
+            defaultValue={getDefaultValues().recurringInterval}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select interval" />

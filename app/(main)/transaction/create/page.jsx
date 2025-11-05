@@ -6,8 +6,9 @@ import { getTransaction } from "@/actions/transaction";
 export default async function AddTransactionPage({ searchParams }) {
   const accounts = await getUserAccounts();
   
-  // SIMPLE FIX: Just add await before searchParams
-  const editId = (await searchParams)?.edit;
+  // Fixed: Properly await searchParams
+  const resolvedSearchParams = await searchParams;
+  const editId = resolvedSearchParams?.edit;
 
   let initialData = null;
   if (editId) {
